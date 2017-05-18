@@ -16,6 +16,13 @@
 
 #ifdef USE_PTHREAD
 #include <pthread.h>
+#elif USE_OPENMP
+#include <omp.h>
+#endif
+
+
+#ifndef NUM_THREADS
+#define NUM_THREADS 8
 #endif
 
 /* Include polybench common header. */
@@ -55,43 +62,57 @@ static void print_array(int n, DATA_TYPE POLYBENCH_2D(path, N, N, n, n))
     POLYBENCH_DUMP_FINISH;
 }
 
-#ifdef USE_PTHREAD
-void *floyd_thread(int k, int n, DATA_TYPE POLYBENCH_2D(path, N, N, n, n)) {
-	int i, j;
-	for (i = 0; i < _PB_N; i++)
-		for (j = 0; j < _PB_N; j++)
-			path[i][j] = path[i][j] < path[i][k] + path[k][j]
-						 ? path[i][j]
-						 : path[i][k] + path[k][j];
-	pthread_exit(NULL);
-}
-#endif
+/* Declara estrutura da thread */
+typedef struct thread_var {
+    int n;
+    int kin, kfim;
+    DATA_TYPE *path;
+    pthread_mutex_t *__mutex;
+} thread_v;
 
+#ifdef USE_PTHREAD
+/* Função thread */
+void *floyd(void *x) {
+    thread_v *var = (thread_v *) x;
+
+    for (int k = var->kin; k < var->kfim; k++) {
+        for (int i = 0; i < var->n; i++) {
+            for (int j = 0; j < var->n; j++) {
+                if (var->path[i + j*var->n] > var->path[i + k*var->n]
+                    + var->path[k + j*var->n]) {
+                        // pthread_mutex_lock(var->__mutex);
+                        var->path[i + j*var->n] = var->path[i + k*var->n]
+                        + var->path[k + j*var->n];
+                        // pthread_mutex_unlock(var->__mutex);
+                    }
+                }
+            }
+    }
+
+    free(x);
+
+    pthread_exit(NULL);
+}
+#else
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static void kernel_floyd_warshall(int n,
                                   DATA_TYPE POLYBENCH_2D(path, N, N, n, n)) {
     int i, j, k;
 
-	#ifdef USE_PTHREAD
-	pthread_t threads[_PB_N];
-	#endif
-
-    #pragma scop
+    #ifdef USE_OPENMP
+    omp_set_num_threads(NUM_THREADS);
+    #pragma omp parallel for private(i, j)
+    #endif
     for (k = 0; k < _PB_N; k++) {
-        #ifdef USE_OPENMP
-        #pragma omp parallel for private(i, j)
         for (i = 0; i < _PB_N; i++)
             for (j = 0; j < _PB_N; j++)
                 path[i][j] = path[i][j] < path[i][k] + path[k][j]
                              ? path[i][j]
                              : path[i][k] + path[k][j];
-		 #elif USE_PTHREAD
-		 pthread_create(&threads[k], NULL, floyd_thread, k, n, POLYBENCH_ARRAY(path));
-		 #endif
     }
-    #pragma endscop
 }
+#endif
 
 int main(int argc, char **argv) {
     /* Retrieve problem size. */
@@ -106,8 +127,34 @@ int main(int argc, char **argv) {
     /* Start timer. */
     polybench_start_instruments;
 
+    #ifdef USE_PTHREAD
+    /* Inicia paralelo */
+    pthread_t vetor_thread[NUM_THREADS];
+    pthread_mutex_t lock_floyd;
+
+    for (size_t i = 0; i < NUM_THREADS; i++) {
+        thread_v *x = (thread_v *)malloc(sizeof(thread_v));
+
+        x->n = n;
+        /* Foi necessario tratar a matriz bidimensional como um vetor
+        unidimensional pois a matriz está armazenada estaticamente na
+        pilha e struct não é capaz de armazenalá */
+        x->path = (DATA_TYPE *)POLYBENCH_ARRAY(path);
+        x->__mutex = &lock_floyd;
+
+        x->kin = (i * n)/NUM_THREADS;
+        x->kfim = ((i+1) * n)/NUM_THREADS;
+
+        pthread_create(&vetor_thread[i], NULL, floyd, x);
+    }
+
+    for (size_t i = 0; i < NUM_THREADS; i++) {
+        pthread_join(vetor_thread[i], NULL);
+    }
+    #else
     /* Run kernel. */
     kernel_floyd_warshall(n, POLYBENCH_ARRAY(path));
+    #endif
 
     /* Stop and print timer. */
     polybench_stop_instruments;
