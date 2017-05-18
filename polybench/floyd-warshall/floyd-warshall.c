@@ -75,9 +75,11 @@ typedef struct thread_var {
 void *floyd(void *x) {
     thread_v *var = (thread_v *) x;
 
-    for (int k = var->kin; k < var->kfim; k++) {
-        for (int i = 0; i < var->n; i++) {
-            for (int j = 0; j < var->n; j++) {
+    int i, j, k;
+
+    for (k = var->kin; k < var->kfim; k++) {
+        for (i = 0; i < var->n; i++) {
+            for (j = 0; j < var->n; j++) {
                 if (var->path[i + j*var->n] > var->path[i + k*var->n]
                     + var->path[k + j*var->n]) {
                         // pthread_mutex_lock(var->__mutex);
@@ -132,7 +134,9 @@ int main(int argc, char **argv) {
     pthread_t vetor_thread[NUM_THREADS];
     pthread_mutex_t lock_floyd;
 
-    for (size_t i = 0; i < NUM_THREADS; i++) {
+    size_t i = 0;
+
+    for (i = 0; i < NUM_THREADS; i++) {
         thread_v *x = (thread_v *)malloc(sizeof(thread_v));
 
         x->n = n;
@@ -148,7 +152,7 @@ int main(int argc, char **argv) {
         pthread_create(&vetor_thread[i], NULL, floyd, x);
     }
 
-    for (size_t i = 0; i < NUM_THREADS; i++) {
+    for (i = 0; i < NUM_THREADS; i++) {
         pthread_join(vetor_thread[i], NULL);
     }
     #else
