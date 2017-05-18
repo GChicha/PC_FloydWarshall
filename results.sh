@@ -2,6 +2,8 @@
 
 Parallel_libs=( openmp pthread )
 
+mkdir out
+
 cmake -DPLIB=seq "."
 make
 for (( i = 0; i < 11; i++ )); do
