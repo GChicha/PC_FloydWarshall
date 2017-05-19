@@ -81,11 +81,11 @@ void *floyd(void *x) {
         for (i = 0; i < var->n; i++) {
             for (j = 0; j < var->n; j++) {
                 if (var->path[i + j*var->n] > var->path[i + k*var->n]
-                    + var->path[k + j*var->n]) {
-                        // pthread_mutex_lock(var->__mutex);
+                                            + var->path[k + j*var->n]) {
+                        pthread_mutex_lock(var->__mutex);
                         var->path[i + j*var->n] = var->path[i + k*var->n]
-                        + var->path[k + j*var->n];
-                        // pthread_mutex_unlock(var->__mutex);
+                                                + var->path[k + j*var->n];
+                        pthread_mutex_unlock(var->__mutex);
                     }
                 }
             }
