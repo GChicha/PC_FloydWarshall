@@ -67,7 +67,7 @@ typedef struct thread_var {
     int n;
     int kin, kfim;
     DATA_TYPE *path;
-    pthread_mutex_t *__mutex;
+    pthread_barrier_t *barrier;
 } thread_v;
 
 #ifdef USE_PTHREAD
@@ -77,15 +77,15 @@ void *floyd(void *x) {
 
     int i, j, k;
 
-    for (k = var->kin; k < var->kfim; k++) {
-        for (i = 0; i < var->n; i++) {
+    for (k = 0; k < var->n; k++) {
+        pthread_barrier_wait(var->barrier);
+        
+        for (i = var->kin; i < var->kfim; i++) {
             for (j = 0; j < var->n; j++) {
                 if (var->path[i + j*var->n] > var->path[i + k*var->n]
                                             + var->path[k + j*var->n]) {
-                        pthread_mutex_lock(var->__mutex);
                         var->path[i + j*var->n] = var->path[i + k*var->n]
                                                 + var->path[k + j*var->n];
-                        pthread_mutex_unlock(var->__mutex);
                     }
                 }
             }
@@ -132,7 +132,9 @@ int main(int argc, char **argv) {
     #ifdef USE_PTHREAD
     /* Inicia paralelo */
     pthread_t vetor_thread[NUM_THREADS];
-    pthread_mutex_t lock_floyd;
+    pthread_barrier_t barrier_floyd;
+
+    pthread_barrier_init(&barrier_floyd, NULL, NUM_THREADS);
 
     size_t i = 0;
 
@@ -144,7 +146,7 @@ int main(int argc, char **argv) {
         unidimensional pois a matriz está armazenada estaticamente na
         pilha e struct não é capaz de armazenalá */
         x->path = (DATA_TYPE *)POLYBENCH_ARRAY(path);
-        x->__mutex = &lock_floyd;
+        x->barrier = &barrier_floyd;
 
         x->kin = (i * n)/NUM_THREADS;
         x->kfim = ((i+1) * n)/NUM_THREADS;

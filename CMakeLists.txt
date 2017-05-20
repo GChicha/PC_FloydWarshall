@@ -35,7 +35,7 @@ add_definitions(-DPOLYBENCH_TIME)
 add_definitions(-DPOLYBENCH_DUMP_ARRAYS)
 
 # Tamanho do dataset
-add_definitions(-DLARGE_DATASET)
+add_definitions(-DSTANDARD_DATASET)
 
 # Se definido o uso do OpenMP ou Pthreads
 if(${PLIB} STREQUAL "openmp")
