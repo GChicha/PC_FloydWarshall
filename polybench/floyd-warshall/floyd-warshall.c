@@ -16,8 +16,6 @@
 
 #ifdef USE_PTHREAD
 #include <pthread.h>
-#elif USE_OPENMP
-#include <omp.h>
 #endif
 
 
@@ -62,30 +60,31 @@ static void print_array(int n, DATA_TYPE POLYBENCH_2D(path, N, N, n, n))
     POLYBENCH_DUMP_FINISH;
 }
 
+
+#ifdef USE_PTHREAD
 /* Declara estrutura da thread */
 typedef struct thread_var {
     int n;
     int kin, kfim;
     DATA_TYPE *path;
-    pthread_mutex_t *__mutex;
+    pthread_barrier_t *barrier;
 } thread_v;
 
-#ifdef USE_PTHREAD
 /* Função thread */
 void *floyd(void *x) {
     thread_v *var = (thread_v *) x;
 
     int i, j, k;
 
-    for (k = var->kin; k < var->kfim; k++) {
-        for (i = 0; i < var->n; i++) {
+    for (k = 0; k < var->n; k++) {
+        // pthread_barrier_wait(var->barrier);
+
+        for (i = var->kin; i < var->kfim; i++) {
             for (j = 0; j < var->n; j++) {
                 if (var->path[i + j*var->n] > var->path[i + k*var->n]
-                    + var->path[k + j*var->n]) {
-                        // pthread_mutex_lock(var->__mutex);
+                                            + var->path[k + j*var->n]) {
                         var->path[i + j*var->n] = var->path[i + k*var->n]
-                        + var->path[k + j*var->n];
-                        // pthread_mutex_unlock(var->__mutex);
+                                                + var->path[k + j*var->n];
                     }
                 }
             }
@@ -102,11 +101,10 @@ static void kernel_floyd_warshall(int n,
                                   DATA_TYPE POLYBENCH_2D(path, N, N, n, n)) {
     int i, j, k;
 
-    #ifdef USE_OPENMP
-    omp_set_num_threads(NUM_THREADS);
-    #pragma omp parallel for private(i, j)
-    #endif
     for (k = 0; k < _PB_N; k++) {
+        #ifdef USE_OPENMP
+        #pragma omp parallel for private(i, j) num_threads(NUM_THREADS)
+        #endif
         for (i = 0; i < _PB_N; i++)
             for (j = 0; j < _PB_N; j++)
                 path[i][j] = path[i][j] < path[i][k] + path[k][j]
@@ -130,9 +128,11 @@ int main(int argc, char **argv) {
     polybench_start_instruments;
 
     #ifdef USE_PTHREAD
-    /* Inicia paralelo */
+    /* Inicia pthread */
     pthread_t vetor_thread[NUM_THREADS];
-    pthread_mutex_t lock_floyd;
+    pthread_barrier_t barrier_floyd;
+
+    pthread_barrier_init(&barrier_floyd, NULL, NUM_THREADS);
 
     size_t i = 0;
 
@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
         unidimensional pois a matriz está armazenada estaticamente na
         pilha e struct não é capaz de armazenalá */
         x->path = (DATA_TYPE *)POLYBENCH_ARRAY(path);
-        x->__mutex = &lock_floyd;
+        x->barrier = &barrier_floyd;
 
         x->kin = (i * n)/NUM_THREADS;
         x->kfim = ((i+1) * n)/NUM_THREADS;
