@@ -5,6 +5,10 @@ project(TrabalhoPC1)
 
 set (TrabalhoPC1_VERSION_MAJOR 1)
 
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
 # Set verbose output while testing CMake
 # set(CMAKE_VERBOSE_MAKEFILE 1)
 
@@ -12,6 +16,7 @@ set (TrabalhoPC1_VERSION_MAJOR 1)
 set(PLIB NO CACHE STRING "Biblioteca a ser utilizada")
 set(NUM_THREADS 8 CACHE INTEGER "Numero de threads")
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+set(DATASET_SIZE LARGE CACHE STRING "Tamanho do dataset")
 
 add_definitions(-DNUM_THREADS=${NUM_THREADS})
 
@@ -30,12 +35,15 @@ target_link_libraries(FloydWarshall Polybench)
 
 # Imprimi o tempo gasto
 add_definitions(-DPOLYBENCH_TIME)
+message(STATUS "Saida stdout será o tempo")
 
 # Imprimi a saida
 add_definitions(-DPOLYBENCH_DUMP_ARRAYS)
+message(STATUS "Saida de erro terá o dump do grafo")
 
 # Tamanho do dataset
-add_definitions(-DSTANDARD_DATASET)
+add_definitions(-D${DATASET_SIZE}_DATASET)
+message(STATUS "Usando dataset de tamanho ${DATASET_SIZE}")
 
 # Se definido o uso do OpenMP ou Pthreads
 if(${PLIB} STREQUAL "openmp")
