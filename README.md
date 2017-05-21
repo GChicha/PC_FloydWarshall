@@ -1,8 +1,11 @@
 # PC_FloydWarshall
 
 Para executa navegue até a pasta build e
+
 cmake ..
+
 make
+
 e o executavel vai estar em bin
 
 o cmake aceita tres parametros
