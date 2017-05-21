@@ -9,6 +9,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+# list(APPEND CMAKE_C_FLAGS " -O3 ")
+
 # Set verbose output while testing CMake
 # set(CMAKE_VERBOSE_MAKEFILE 1)
 
@@ -32,14 +34,15 @@ target_link_libraries(FloydWarshall Polybench)
 # Configura PAPI
 # add_definitions(-DPOLYBENCH_PAPI)
 # list(APPEND CMAKE_C_FLAGS " -lpapi ")
+# message(STATUS "Rodando com PAPI")
 
 # Imprimi o tempo gasto
 add_definitions(-DPOLYBENCH_TIME)
-message(STATUS "Saida stdout será o tempo")
+message(STATUS "Saida stdout = tempo")
 
 # Imprimi a saida
 add_definitions(-DPOLYBENCH_DUMP_ARRAYS)
-message(STATUS "Saida de erro terá o dump do grafo")
+message(STATUS "Saida stderr = dump do grafo")
 
 # Tamanho do dataset
 add_definitions(-D${DATASET_SIZE}_DATASET)
