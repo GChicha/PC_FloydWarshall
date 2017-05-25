@@ -9,7 +9,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# list(APPEND CMAKE_C_FLAGS " -O3 ")
+add_definitions(" -O3 ")
+
+set(CMAKE_C_COMPILER /usr/bin/gcc)
 
 # Set verbose output while testing CMake
 # set(CMAKE_VERBOSE_MAKEFILE 1)
@@ -32,9 +34,9 @@ add_executable(FloydWarshall ./polybench/floyd-warshall/floyd-warshall.c)
 target_link_libraries(FloydWarshall Polybench)
 
 # Configura PAPI
-# add_definitions(-DPOLYBENCH_PAPI)
-# list(APPEND CMAKE_C_FLAGS " -lpapi ")
-# message(STATUS "Rodando com PAPI")
+add_definitions(-DPOLYBENCH_PAPI)
+add_definitions(" -lpapi ")
+message(STATUS "Rodando com PAPI")
 
 # Imprimi o tempo gasto
 add_definitions(-DPOLYBENCH_TIME)
@@ -52,7 +54,7 @@ message(STATUS "Usando dataset de tamanho ${DATASET_SIZE}")
 if(${PLIB} STREQUAL "openmp")
     message(STATUS "Usando OpenMP com ${NUM_THREADS} threads")
     add_definitions(-DUSE_OPENMP)
-    list(APPEND CMAKE_C_FLAGS " -fopenmp ")
+    add_definitions(" -fopenmp ")
 elseif(${PLIB} STREQUAL "pthread")
     message(STATUS "Usando Pthreads com ${NUM_THREADS} threads")
     add_definitions(-DUSE_PTHREAD)

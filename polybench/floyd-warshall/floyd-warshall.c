@@ -1,18 +1,21 @@
 /**
- * This version is stamped on May 10, 2016
+ * floyd-warshall.c: This file is part of the PolyBench/C 3.2 test suite.
  *
- * Contact:
- *   Louis-Noel Pouchet <pouchet.ohio-state.edu>
- *   Tomofumi Yuki <tomofumi.yuki.fr>
  *
+ * Contact: Louis-Noel Pouchet <pouchet@cse.ohio-state.edu>
  * Web address: http://polybench.sourceforge.net
  */
-/* floyd-warshall.c: this file is part of PolyBench/C */
-
-#include <math.h>
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
+#include <string.h>
+#include <math.h>
+
+/* Include polybench common header. */
+#include <polybench.h>
+
+/* Include benchmark-specific header. */
+/* Default data type is double, default size is 1024. */
+#include "floyd-warshall.h"
 
 #ifdef USE_PTHREAD
 #include <pthread.h>
@@ -23,41 +26,34 @@
 #define NUM_THREADS 8
 #endif
 
-/* Include polybench common header. */
-#include "../utilities/polybench.h"
-
-/* Include benchmark-specific header. */
-#include "floyd-warshall.h"
-
 /* Array initialization. */
-static void init_array(int n, DATA_TYPE POLYBENCH_2D(path, N, N, n, n)) {
-    int i, j;
+static
+void init_array (int n,
+		 DATA_TYPE POLYBENCH_2D(path,N,N,n,n))
+{
+  int i, j;
 
-    for (i = 0; i < n; i++)
-        for (j = 0; j < n; j++) {
-            path[i][j] = i * j % 7 + 1;
-            if ((i + j) % 13 == 0 || (i + j) % 7 == 0 || (i + j) % 11 == 0)
-                path[i][j] = 999;
-        }
+  for (i = 0; i < n; i++)
+    for (j = 0; j < n; j++)
+      path[i][j] = ((DATA_TYPE) (i+1)*(j+1)) / n;
 }
+
 
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
-static void print_array(int n, DATA_TYPE POLYBENCH_2D(path, N, N, n, n))
+static
+void print_array(int n,
+		 DATA_TYPE POLYBENCH_2D(path,N,N,n,n))
 
 {
-    int i, j;
+  int i, j;
 
-    POLYBENCH_DUMP_START;
-    POLYBENCH_DUMP_BEGIN("path");
-    for (i = 0; i < n; i++)
-        for (j = 0; j < n; j++) {
-            if ((i * n + j) % 20 == 0)
-                fprintf(POLYBENCH_DUMP_TARGET, "\n");
-            fprintf(POLYBENCH_DUMP_TARGET, DATA_PRINTF_MODIFIER, path[i][j]);
-        }
-    POLYBENCH_DUMP_END("path");
-    POLYBENCH_DUMP_FINISH;
+  for (i = 0; i < n; i++)
+    for (j = 0; j < n; j++) {
+      fprintf (stderr, DATA_PRINTF_MODIFIER, path[i][j]);
+      if ((i * n + j) % 20 == 0) fprintf (stderr, "\n");
+    }
+  fprintf (stderr, "\n");
 }
 
 
@@ -77,8 +73,6 @@ void *floyd(void *x) {
     int i, j, k;
 
     for (k = 0; k < var->n; k++) {
-        // pthread_barrier_wait(var->barrier);
-
         for (i = var->kin; i < var->kfim; i++) {
             for (j = 0; j < var->n; j++) {
                 if (var->path[i + j*var->n] > var->path[i + k*var->n]
@@ -114,62 +108,62 @@ static void kernel_floyd_warshall(int n,
 }
 #endif
 
-int main(int argc, char **argv) {
-    /* Retrieve problem size. */
-    int n = N;
 
-    /* Variable declaration/allocation. */
-    POLYBENCH_2D_ARRAY_DECL(path, DATA_TYPE, N, N, n, n);
+int main(int argc, char** argv)
+{
+  /* Retrieve problem size. */
+  int n = N;
 
-    /* Initialize array(s). */
-    init_array(n, POLYBENCH_ARRAY(path));
+  /* Variable declaration/allocation. */
+  POLYBENCH_2D_ARRAY_DECL(path, DATA_TYPE, N, N, n, n);
 
-    /* Start timer. */
-    polybench_start_instruments;
 
-    #ifdef USE_PTHREAD
-    /* Inicia pthread */
-    pthread_t vetor_thread[NUM_THREADS];
-    pthread_barrier_t barrier_floyd;
+  /* Initialize array(s). */
+  init_array (n, POLYBENCH_ARRAY(path));
 
-    pthread_barrier_init(&barrier_floyd, NULL, NUM_THREADS);
+  /* Start timer. */
+  polybench_start_instruments;
 
-    size_t i = 0;
+  #ifdef USE_PTHREAD
+  /* Inicia pthread */
+  pthread_t vetor_thread[NUM_THREADS];
 
-    for (i = 0; i < NUM_THREADS; i++) {
-        thread_v *x = (thread_v *)malloc(sizeof(thread_v));
+  size_t i = 0;
 
-        x->n = n;
-        /* Foi necessario tratar a matriz bidimensional como um vetor
-        unidimensional pois a matriz está armazenada estaticamente na
-        pilha e struct não é capaz de armazenalá */
-        x->path = (DATA_TYPE *)POLYBENCH_ARRAY(path);
-        x->barrier = &barrier_floyd;
+  for (i = 0; i < NUM_THREADS; i++) {
+	  thread_v *x = (thread_v *)malloc(sizeof(thread_v));
 
-        x->kin = (i * n)/NUM_THREADS;
-        x->kfim = ((i+1) * n)/NUM_THREADS;
+	  x->n = n;
+	  /* Foi necessario tratar a matriz bidimensional como um vetor
+	  unidimensional pois a matriz está armazenada estaticamente na
+	  pilha e struct não é capaz de armazenalá */
+	  x->path = (DATA_TYPE *)POLYBENCH_ARRAY(path);
+	  x->barrier = &barrier_floyd;
 
-        pthread_create(&vetor_thread[i], NULL, floyd, x);
-    }
+	  x->kin = (i * n)/NUM_THREADS;
+	  x->kfim = ((i+1) * n)/NUM_THREADS;
 
-    for (i = 0; i < NUM_THREADS; i++) {
-        pthread_join(vetor_thread[i], NULL);
-    }
-    #else
-    /* Run kernel. */
-    kernel_floyd_warshall(n, POLYBENCH_ARRAY(path));
-    #endif
+	  pthread_create(&vetor_thread[i], NULL, floyd, x);
+  }
 
-    /* Stop and print timer. */
-    polybench_stop_instruments;
-    polybench_print_instruments;
+  for (i = 0; i < NUM_THREADS; i++) {
+	  pthread_join(vetor_thread[i], NULL);
+  }
+  #else
+  /* Run kernel. */
+  kernel_floyd_warshall(n, POLYBENCH_ARRAY(path));
+  #endif
 
-    /* Prevent dead-code elimination. All live-out data must be printed
-       by the function call in argument. */
-    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(path)));
+  /* Stop and print timer. */
+  polybench_stop_instruments;
+  polybench_print_instruments;
 
-    /* Be clean. */
-    POLYBENCH_FREE_ARRAY(path);
+  /* Prevent dead-code elimination. All live-out data must be printed
+     by the function call in argument. */
+  polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(path)));
 
-    return 0;
+  /* Be clean. */
+  POLYBENCH_FREE_ARRAY(path);
+
+  return 0;
 }
