@@ -16,32 +16,66 @@ LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/res)
 # Otimização do compilador
 add_definitions(" -O3 ")
 
+# Warn All
+add_definitions(" -Wall ")
+
 # Incluí a pasta utilities
 include_directories(polybench/utilities)
 
 # Exporta arquivo compile_commands.json para auxiliar linter atom
-set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
-
-# Set verbose output while testing CMake
-# set(CMAKE_VERBOSE_MAKEFILE 1)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Definição de variavel atribuida pelo usuario
 set(PLIB seq CACHE STRING "Biblioteca a ser utilizada")
-set(NUM_THREADS 8 CACHE INTEGER "Numero de threads")
-set(DATASET_SIZE LARGE CACHE STRING "Tamanho do dataset")
-set(STDOUT papi CACHE STRING "Tipo de saida stdout")
-set(DUMP OFF CACHE BOOLEAN "Imprime dump do grafo")
+set_property(CACHE PLIB PROPERTY STRINGS "seq;openmp;pthread")
 
-add_definitions(-DNUM_THREADS=${NUM_THREADS})
+set(NUM_THREADS 8 CACHE STRING "Numero de threads")
+set_property(CACHE NUM_THREADS PROPERTY STRINGS "2;4;8;16;32")
+
+set(DATASET_SIZE LARGE CACHE STRING "Tamanho do dataset")
+set_property(CACHE DATASET_SIZE PROPERTY STRINGS "MINI;SMALL;LARGE;EXTRALARGE")
+
+set(STDOUT papi CACHE STRING "Tipo de saida stdout")
+set_property(CACHE STDOUT PROPERTY STRINGS "papi;time")
+
+set(DUMP OFF CACHE BOOL "Imprime dump do grafo")
 
 # Constroi a biblioteca do Polybench
 add_library(Polybench ./polybench/utilities/polybench)
 
 # Constroi o executavel do FloydWarshall
-add_executable(FloydWarshall ./polybench/floyd-warshall/floyd-warshall.c)
+add_executable(FloydWarshall ./polybench/floyd-warshall/floyd-warshall)
 
 # Link bibliotecas
 target_link_libraries(FloydWarshall Polybench)
+
+# Se definido o uso do OpenMP ou Pthreads
+if(${PLIB} STREQUAL "openmp")
+    # Defime o numero de threads para a biblioteca paralela
+    add_definitions(-DNUM_THREADS=${NUM_THREADS})
+
+    message(STATUS "Usando OpenMP com ${NUM_THREADS} threads")
+    add_definitions(-DUSE_OPENMP)
+    find_package(OpenMP)
+    if (OPENMP_FOUND)
+        set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    endif()
+    add_definitions(-fopenmp)
+elseif(${PLIB} STREQUAL "pthread")
+    # Defime o numero de threads para a biblioteca paralela
+    add_definitions(-DNUM_THREADS=${NUM_THREADS})
+
+    message(STATUS "Usando Pthreads com ${NUM_THREADS} threads")
+    add_definitions(-DUSE_PTHREAD)
+    target_link_libraries(FloydWarshall pthread)
+elseif(${PLIB} STREQUAL "seq")
+    message(STATUS "Rodando sequencial")
+else()
+    message(WARNING "Biblioteca ${P_LIB} não identificada")
+    message("Use a biblioteca openmp ou pthread ou defina como seq")
+    message(WARNING "Não usando paralelismo")
+endif()
 
 IF(${DUMP})
     # Imprimi a saida
@@ -67,21 +101,3 @@ ENDIF()
 # Tamanho do dataset
 add_definitions(-D${DATASET_SIZE}_DATASET)
 message(STATUS "Usando dataset de tamanho ${DATASET_SIZE}")
-
-# Se definido o uso do OpenMP ou Pthreads
-if(${PLIB} STREQUAL "openmp")
-    message(STATUS "Usando OpenMP com ${NUM_THREADS} threads")
-    add_definitions(-DUSE_OPENMP)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-elseif(${PLIB} STREQUAL "pthread")
-    message(STATUS "Usando Pthreads com ${NUM_THREADS} threads")
-    add_definitions(-DUSE_PTHREAD)
-    target_link_libraries(FloydWarshall pthread)
-elseif(${PLIB} STREQUAL "seq")
-    message(STATUS "Rodando sequencial")
-else()
-    message(WARNING "Biblioteca ${P_LIB} não identificada")
-    message("Use a biblioteca openmp ou pthread ou defina como seq")
-    message(WARNING "Não usando paralelismo")
-endif()
