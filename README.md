@@ -3,6 +3,7 @@
 cd build
 
 ccmake ..
+
 make
 
 ./bin/FloydWarshall
