@@ -112,7 +112,7 @@ int main(int argc, char** argv)
     /* Start timer. */
     polybench_start_instruments;
 
- 	#ifdef USE_PTHREAD
+   #ifdef USE_PTHREAD
     /* Inicia pthread */
     pthread_t vetor_thread[NUM_THREADS];
 
@@ -138,11 +138,32 @@ int main(int argc, char** argv)
 	MPI_Comm_size(MPI_COMM_WORLD, &size);	
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);	
 	
+	thread_v *x = (thread_v *)malloc(sizeof(thread_v));
+
 	if(rank == MASTER) {
-		
+		size_t i;
+		for (i = 0; i < size; i++) {
+			if (i != MASTER) {
+				x->kin = (i * n)/size;
+				x->kfim = ((i+1) * n)/size;
+
+				MPI_Send(x, 2, MPI_INT, i, 0, MPI_COMM_WORLD); 
+			}
+		}
+
+		x->kin = (i * n)/size;
+		x->kfim = ((i+1) * n)/size;
+
+		floyd(x);
+
+		MPI_
 	}
 	else {
+		MPI_Recv(x, 2, MPI_INT, 0, 0, MPI_COMM_WORLD);
 		
+		floyd(x);		
+
+		MPI_Send(path, n*n*sizeof(DATA_TYPE), MPI_BYTE, 0, 1, MPI_COMM_WORLD); 
 	}
   #else
     /* Run kernel. */
