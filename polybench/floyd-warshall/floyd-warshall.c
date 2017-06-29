@@ -21,6 +21,14 @@
 #include <pthread.h>
 #endif
 
+#ifdef USE_MPI
+#include <mpi.h>
+
+#ifndef MASTER
+#define MASTER 0
+#endif
+
+#endif
 
 #ifndef NUM_THREADS
 #define NUM_THREADS 8
@@ -58,50 +66,39 @@ void print_array(int n)
 }
 
 
-#ifdef USE_PTHREAD
+/* Main computational kernel. The whole function will be timed,
+   including the call and return. */
+#if !defined(USE_PTHREAD) || !(USE_MPI)
+static void kernel_floyd_warshall(int n) {
+
+#else
 /* Declara estrutura da thread */
 typedef struct thread_var {
-    int n;
     int kin, kfim;
 } thread_v;
 
-/* Função thread */
 void *floyd(void *x) {
     thread_v *var = (thread_v *) x;
 
-    int i, j, k;
-
-    for (k = 0; k < var->n; k++) {
-        for (i = var->kin; i < var->kfim; i++) {
-            for (j = 0; j < var->n; j++) {
-                path[i][j] = path[i][j] < path[i][k] + path[k][j]
-                             ? path[i][j]
-                             : path[i][k] + path[k][j];
-            }
-        }
-    }
-	free(x);
-	pthread_exit(NULL);
-}
-
-#else
-/* Main computational kernel. The whole function will be timed,
-   including the call and return. */
-static void kernel_floyd_warshall(int n) {
+#endif
     int i, j, k;
 
     for (k = 0; k < _PB_N; k++) {
-        #ifdef USE_OPENMP
+	#ifndef USE_PTHREAD
+
+	#ifdef USE_OPENMP
         #pragma omp parallel for private(i, j) num_threads(NUM_THREADS)
-        #endif
+	#endif
         for (i = 0; i < _PB_N; i++)
+	#else
+        for (i = var->kin; i < var->kfim; i++)
+	#endif
             for (j = 0; j < _PB_N; j++)
                 path[i][j] = path[i][j] < path[i][k] + path[k][j]
                              ? path[i][j]
                              : path[i][k] + path[k][j];
     }
 }
-#endif
 
 
 int main(int argc, char** argv)
@@ -109,17 +106,13 @@ int main(int argc, char** argv)
     /* Retrieve problem size. */
     int n = N;
 
-    /* Variable declaration/allocation. */
-    // POLYBENCH_2D_ARRAY_DECL(path, DATA_TYPE, N, N, n, n);
-
-
     /* Initialize array(s). */
     init_array (n);
 
     /* Start timer. */
     polybench_start_instruments;
 
-  #ifdef USE_PTHREAD
+ 	#ifdef USE_PTHREAD
     /* Inicia pthread */
     pthread_t vetor_thread[NUM_THREADS];
 
@@ -127,8 +120,6 @@ int main(int argc, char** argv)
 
     for (i = 0; i < NUM_THREADS; i++) {
         thread_v *x = (thread_v *)malloc(sizeof(thread_v));
-
-        x->n = n;
 
         x->kin = (i * n)/NUM_THREADS;
         x->kfim = ((i+1) * n)/NUM_THREADS;
@@ -139,6 +130,20 @@ int main(int argc, char** argv)
     for (i = 0; i < NUM_THREADS; i++) {
         pthread_join(vetor_thread[i], NULL);
     }
+  #ifdef USE_MPI
+	int size, rank;
+
+	MPI_Init(&argc, &argv);
+
+	MPI_Comm_size(MPI_COMM_WORLD, &size);	
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);	
+	
+	if(rank == MASTER) {
+		
+	}
+	else {
+		
+	}
   #else
     /* Run kernel. */
     kernel_floyd_warshall(n);
