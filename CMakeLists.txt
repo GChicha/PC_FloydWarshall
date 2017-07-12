@@ -14,7 +14,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/res)
 
 # Otimização do compilador
-add_definitions(" -O3 ")
+add_definitions(" -O0 ")
 
 # Warn All
 add_definitions(" -Wall ")
@@ -27,7 +27,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Definição de variavel atribuida pelo usuario
 set(PLIB seq CACHE STRING "Biblioteca a ser utilizada")
-set_property(CACHE PLIB PROPERTY STRINGS "seq;openmp;pthread")
+set_property(CACHE PLIB PROPERTY STRINGS "seq;openmp;pthread;mpi")
 
 set(NUM_THREADS 8 CACHE STRING "Numero de threads")
 set_property(CACHE NUM_THREADS PROPERTY STRINGS "2;4;8;16;32")
@@ -71,6 +71,16 @@ elseif(${PLIB} STREQUAL "pthread")
     target_link_libraries(FloydWarshall pthread)
 elseif(${PLIB} STREQUAL "seq")
     message(STATUS "Rodando sequencial")
+elseif(${PLIB} STREQUAL "mpi")
+    message(STATUS "Rodando usando MPI")
+
+    find_package(MPI REQUIRED)
+
+    include_directories(${MPI_INCLUDE_PATH})
+
+    target_link_libraries(FloydWarshall ${MPI_C_LIBRARIES})
+
+    add_definitions( -DUSE_MPI )
 else()
     message(WARNING "Biblioteca ${P_LIB} não identificada")
     message("Use a biblioteca openmp ou pthread ou defina como seq")

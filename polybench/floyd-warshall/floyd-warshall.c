@@ -68,36 +68,51 @@ void print_array(int n)
 
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
-#if !defined(USE_PTHREAD) || !(USE_MPI)
-static void kernel_floyd_warshall(int n) {
-
-#else
+#if defined(USE_PTHREAD) || defined(USE_MPI)
 /* Declara estrutura da thread */
 typedef struct thread_var {
     int kin, kfim;
+    int n;
+
+    #ifdef USE_MPI
+    int k;
+    #endif
 } thread_v;
 
 void *floyd(void *x) {
     thread_v *var = (thread_v *) x;
 
+    int n = var->n;
+#else
+static void kernel_floyd_warshall(int n) {
 #endif
     int i, j, k;
 
-    for (k = 0; k < _PB_N; k++) {
-	#ifndef USE_PTHREAD
+    #ifdef USE_MPI
+    for (k = var->k; k < var->k + 1; k++) {
+    #else
+    for (k = 0; k < n; k++) {
+    #endif
 
-	#ifdef USE_OPENMP
-        #pragma omp parallel for private(i, j) num_threads(NUM_THREADS)
-	#endif
-        for (i = 0; i < _PB_N; i++)
-	#else
+	#if defined(USE_PTHREAD) || defined(USE_MPI)
         for (i = var->kin; i < var->kfim; i++)
+	#else
+        #ifdef USE_OPENMP
+        #pragma omp parallel for private(i, j) num_threads(NUM_THREADS)
+        #endif
+        for (i = 0; i < n; i++)
 	#endif
-            for (j = 0; j < _PB_N; j++)
+            for (j = 0; j < n; j++)
                 path[i][j] = path[i][j] < path[i][k] + path[k][j]
                              ? path[i][j]
                              : path[i][k] + path[k][j];
     }
+
+    #ifdef USE_PTHREAD
+    pthread_exit(0);
+    #elif USE_MPI
+    return NULL;
+    #endif
 }
 
 
@@ -105,6 +120,8 @@ int main(int argc, char** argv)
 {
     /* Retrieve problem size. */
     int n = N;
+
+    size_t i = 0;
 
     /* Initialize array(s). */
     init_array (n);
@@ -116,13 +133,13 @@ int main(int argc, char** argv)
     /* Inicia pthread */
     pthread_t vetor_thread[NUM_THREADS];
 
-    size_t i = 0;
-
     for (i = 0; i < NUM_THREADS; i++) {
         thread_v *x = (thread_v *)malloc(sizeof(thread_v));
 
         x->kin = (i * n)/NUM_THREADS;
         x->kfim = ((i+1) * n)/NUM_THREADS;
+
+        x->n = n;
 
         pthread_create(&vetor_thread[i], NULL, floyd, x);
     }
@@ -130,32 +147,75 @@ int main(int argc, char** argv)
     for (i = 0; i < NUM_THREADS; i++) {
         pthread_join(vetor_thread[i], NULL);
     }
-  #ifdef USE_MPI
+  #elif USE_MPI
 	int size, rank;
 
 	MPI_Init(&argc, &argv);
 
 	MPI_Comm_size(MPI_COMM_WORLD, &size);	
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);	
+
+    /* printf("Process %d-%d on\n", rank+1, size); */
+
+    int *displs = (int *)calloc(size, sizeof(int));
+    int *recvcout = (int *)calloc(size, sizeof(int));
+
+    displs[0] = 0;
+    recvcout[0] = (n % size) * n * sizeof(DATA_TYPE);
+
+    for (i = 0; i < size; i ++) {
+        if (i > 0)
+            displs[i] = displs[i - 1] + recvcout[i - 1];
+        recvcout[i] += (n / size) * n * sizeof(DATA_TYPE);   
+    }
+    
+    int k = 0;
+    /* int j = 0; */
+    /* printf("%d\n", getpid()); */
+    for (; k < n; k++){
+        MPI_Bcast(path, n * n * sizeof(DATA_TYPE), MPI_BYTE, MASTER, MPI_COMM_WORLD);
+        
+        /* while (j == 0) */
+        /*     sleep(5); */
+
+        thread_v x;
+
+        x.kin = recvcout[rank] / (n * sizeof(DATA_TYPE)) * rank;
+        x.kfim = recvcout[rank] / (n * sizeof(DATA_TYPE)) * (rank + 1);
+        x.k = k;
+
+        x.n = n;
+
+        floyd(&x);
+
+        MPI_Gatherv(path[x.kin], recvcout[rank], MPI_BYTE, path, recvcout, displs, MPI_BYTE, MASTER, MPI_COMM_WORLD);
+    }
+
+    MPI_Finalize();
 	
-	if(rank == MASTER) {
-		
-	}
-	else {
-		
-	}
   #else
     /* Run kernel. */
     kernel_floyd_warshall(n);
   #endif
 
     /* Stop and print timer. */
+    #ifdef USE_MPI
+    if (rank == MASTER){
+        polybench_stop_instruments;
+        polybench_print_instruments;
+
+        /* Prevent dead-code elimination. All live-out data must be printed
+           by the function call in argument. */
+        polybench_prevent_dce(print_array(n));
+    }
+    #else
     polybench_stop_instruments;
     polybench_print_instruments;
 
     /* Prevent dead-code elimination. All live-out data must be printed
        by the function call in argument. */
     polybench_prevent_dce(print_array(n));
+    #endif
 
     /* Be clean. */
     // POLYBENCH_FREE_ARRAY(path);
