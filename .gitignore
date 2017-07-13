@@ -71,3 +71,5 @@ CTestTestfile.cmake
 out
 bin
 lib
+
+*.swp
