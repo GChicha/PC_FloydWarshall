@@ -173,7 +173,11 @@ int main(int argc, char** argv)
     /* int j = 0; */
     /* printf("%d\n", getpid()); */
     for (; k < n; k++){
+		// if (rank == MASTER)
+		//	printf("K = %d\n", k);
+
         // MPI_Bcast(path, n * n * sizeof(DATA_TYPE), MPI_BYTE, MASTER, MPI_COMM_WORLD);
+        // MPI_Scatter(&path[0][k], sizeof(DATA_TYPE), MPI_BYTE, &path[0][k], n * sizeof(DATA_TYPE), MPI_BYTE,  MASTER, MPI_COMM_WORLD);
         
         /* while (j == 0) */
         /*     sleep(5); */
