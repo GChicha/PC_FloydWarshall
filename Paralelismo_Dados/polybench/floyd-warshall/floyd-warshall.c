@@ -173,7 +173,7 @@ int main(int argc, char** argv)
     /* int j = 0; */
     /* printf("%d\n", getpid()); */
     for (; k < n; k++){
-        MPI_Bcast(path, n * n * sizeof(DATA_TYPE), MPI_BYTE, MASTER, MPI_COMM_WORLD);
+        // MPI_Bcast(path, n * n * sizeof(DATA_TYPE), MPI_BYTE, MASTER, MPI_COMM_WORLD);
         
         /* while (j == 0) */
         /*     sleep(5); */
