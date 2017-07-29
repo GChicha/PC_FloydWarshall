@@ -26,8 +26,9 @@ void kernel_floyd (double vetor[], int n) {
 
 int main() {
     MPI_Init(NULL, NULL);
+    double startPoint = MPI_Wtime();
 
-    srand(time(NULL));
+    srand(MPI_Wtime());
 
     int rankWorld;
     int sizeWorld;
@@ -46,10 +47,6 @@ int main() {
     int ranks[2];
 
     int comToSend = -1;
-
-    time_t curTime;
-
-    LOG(COLOR_GREEN, "Rank %d Inicializado", rankWorld);
 
     if (rankWorld == SERVIDOR) {
         ranks[0] = SERVIDOR;
@@ -282,8 +279,8 @@ int main() {
     #endif   
 
     if (rankWorld == SERVIDOR) {
-        time_t startTime, actualTime;
-        time(&actualTime);
+        double startTime, actualTime;
+        actualTime = MPI_Wtime();
         startTime = actualTime;
 
         FILE *arquivoEntrada = fopen(ARQ_NOME, "r");
@@ -304,9 +301,9 @@ int main() {
         MPI_Irecv(&bufferMensagem, sizeof(mensagem), MPI_BYTE, otoRank, 0, comunicadores[0], &receiver);
 
         do {
-            time(&actualTime);
+            actualTime = MPI_Wtime();
 
-            if (difftime(actualTime, startTime) >= timeWait) {
+            if (actualTime -  startTime >= timeWait) {
                 mensagem x;
                 x.processado = 0;
 
@@ -319,7 +316,7 @@ int main() {
                             MPI_BYTE, otoRank, 0, comunicadores[0]);
                     MPI_Send(vetor, x.sizeProblem * x.sizeProblem, // Envia o vetor criado para processamento
                             MPI_DOUBLE, otoRank, 0, comunicadores[0]);
-                    time(&startTime); // Inicia o contador de tempo para enviar proxima mensagem
+                    startTime = MPI_Wtime(); // Inicia o contador de tempo para enviar proxima mensagem
                     sended++; // Incrementa o numero de mensagens enviadas para saber o tempo de parar o codigo
                 }
             }
@@ -343,7 +340,7 @@ int main() {
 
                 sended--;
             }
-        } while (difftime(actualTime, startTime) < timeWait || sended > 0);
+        } while (actualTime - startTime < timeWait || sended > 0);
 
         fclose(arquivoEntrada);
 

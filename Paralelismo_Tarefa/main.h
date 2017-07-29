@@ -3,8 +3,6 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
 
 #ifndef ARQ_NOME
 #define ARQ_NOME "input.txt"
@@ -13,16 +11,17 @@
 #define TRUE 1
 #define FALSE 0
 
+#define MPI_WTIME_IS_GLOBAL 1
+
 typedef struct mensagem {
     size_t sizeProblem;
     int processado;
     size_t tof;
 } mensagem;
 
-#define CURTIME time(&curTime)
-#define lTime localtime(&curTime)
+#define CURTIME MPI_Wtime() - startPoint
 
-#define LOG(COR, STR, ...)  CURTIME;printf("[%02d:%02d:%02d]" COR STR COLOR_RESET "\n", lTime->tm_hour, lTime->tm_min, lTime->tm_sec, ##__VA_ARGS__)
+#define LOG(COR, STR, ...)  printf("[%lf]" COR STR COLOR_RESET "\n", CURTIME, ##__VA_ARGS__)
 
 #define COLOR_RED     "\x1b[31m"
 #define COLOR_GREEN   "\x1b[32m"
